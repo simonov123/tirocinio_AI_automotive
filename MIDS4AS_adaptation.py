@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import *
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
@@ -11,7 +12,40 @@ from PyQt6.QtWidgets import QPushButton,QApplication,QWidget,QVBoxLayout
 
 
 def boxplotshow(X):
-    print("boxplotdata")
+    """
+    Questo metodo restituisce un boxplot (un foglio con un boxplot per ognuna delle 13 features disposte in due colonne da 7) che mostra
+    quanto ogni feature è discriminante rispetto alla label,ovvero al tipo di attacco
+    Parameters
+    ----------
+    X: il dataset
+
+    Returns
+    -------
+
+    """
+    Features = ['1', '2', '3', '4', '5', '7', '8', '9', '10', '11', '12', '13', '14'] #intestazione delle features
+    label = 'label'             #intestazione label
+    classes = X[label].unique()  #le 4 tipologie di attacco
+
+    fig, axes = plt.subplots(7, 2, figsize=(14, 24))  # organizzazione della tabella dei plot
+    axes = axes.flatten()
+
+    for i, f in enumerate(Features):     #ciclo della creazione dei plot in ogni feature
+        # valori della feature f per ciascuna classe
+        data_by_class = [X[X[label] == c][f].values for c in classes]
+
+        axes[i].boxplot(data_by_class, labels=classes)  #disposizione dei valori per le classi
+        axes[i].set_title(f'Feature {f}')  #settaggio label dei plot
+        axes[i].set_xlabel('Classi')
+        axes[i].set_ylabel(f)
+
+    #stampa a video dei plot
+    plt.tight_layout()
+    plt.show()
+
+
+
+
 
 #Varie funzioni necessarie all'esecuzione
 def kmeans_learner(X_train, k_parameter, seed):
@@ -52,6 +86,17 @@ def kMedoid_Learner(X_train2,num_clusters,metric,method,init,iter,seed):
 
     kmedoids_obj=cluster.KMedoids(num_clusters,metric,method,init,iter,seed)
     return kmedoids_obj.fit(X_train2)
+
+def KNN_Learner(X_train2,Y_train2):
+    Knn_obj = KNeighborsClassifier(
+    n_neighbors=5,
+    weights="uniform",
+    algorithm="ball_tree",
+    leaf_size=30,
+    p=2
+)
+
+    return Knn_obj.fit(X_train2,Y_train2)
 
 
 def print_cluster(cluster_class, purity):
@@ -214,8 +259,14 @@ def kmeans():
         # Si sfrutta il mapping tra le classi (corrispondenti a ciascuna predizione e dunque a ciascun cluster predetto)
         # e i cluster precedente
         y_prediction_adv = [cluster_class.get(key) for key in prediction]
+        Y_B_expanded = np.resize(Y_B, X_B_bound_dt.shape[0]) #necessario un resize del dataset avversario per evitare errori di inconsistenza dovuta alla diversa dimensione del dataset bilanciato
+        #controllo lunghezza dataset
+        if(len(X_A)<300000):
+            evaluation_results(Y_B, y_prediction_adv, class_names)
 
-        evaluation_results(Y_B, y_prediction_adv, class_names)
+        else:
+            evaluation_results(Y_B_expanded, y_prediction_adv, class_names)
+
 
 def kmedoids():
     # Esecuzione del K-means (fase di train che serve ad apprendere i centriodi
@@ -253,6 +304,15 @@ def kmedoids():
     # mentre il test set è X_B_bound_dt (con Y_B come verità a terra)
     X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_b.txt')
 
+def Knn():
+    # Esecuzione del K-means (fase di train che serve ad apprendere i centriodi
+    print("[+] Exec the KNN algorithm [Training]")
+    KnnOb=KNN_Learner(X_A,Y_A)
+
+
+
+
+
 
 
 
@@ -260,13 +320,28 @@ def kmedoids():
 
 #Funzione main - punto di partenza del software
 if __name__ == "__main__":
+    plt.ion()
     # Nomi delle classi
     class_names = ["Normal", "Dos", "Fuzzy", "Impersonification"]
     # Impostazione del seed così da ri eseguire gli esperimenti
     np.random.seed(seed=42)
     seed = 42
-    # caricamento file dataset e valorizzazione indice colonna
-    dataset = pd.read_csv('./dataset_final.csv', index_col=0)
+    # caricamento file dataset e valorizzazione indice
+    print("selezione database")
+    print(""" 
+    1)databse originale
+    2)Database bilanciato con AI generativa
+    """)
+    dataset=""
+    dbn=input()
+    if dbn=='1':
+        dataset = pd.read_csv('./dataset_final.csv', index_col=0)
+    if dbn=='2':
+        dataset = pd.read_csv('./dataset_balanced.csv', index_col=0)
+    if dbn !='1' and dbn !='2':
+        print("scelta non valida")
+        dataset=""
+
     print('Dataset imported')
     # stampa dataset importato
     print(dataset)
@@ -280,15 +355,29 @@ if __name__ == "__main__":
     print("Number of examples: {exa} \n Number of attributes: {natt} \n Attributes: {att}".format(
         exa=len(df_dataset.values), natt=len(df_dataset.columns), att=df_dataset.columns))
 
+    print("stampare i boxplot?")
+    print("""
+    1)si (verranno solo stampati i boxplot)
+    2)no
+    """)
+    plotsc=input()
+    if plotsc=='1':
+        boxplotshow(df_dataset)
+
+
+
+
     # Split the dataset in independent variables and label
     # divisione dataset in variabili indipendti (dataset) e dipendenti (label)
     dataset = df_dataset.iloc[:, 0: 14]
     label = df_dataset.loc[:, 'label']
+
     print('Dataset splitted in independent and depedent variables')
     print("indipendenti")
     print(dataset)
     print("dipendenti")
     print(label)
+
 
     # Fase di scaling - Decommentare le istruzioni di un solo modo di scalare
     # Standard Scaling
@@ -322,6 +411,7 @@ if __name__ == "__main__":
     ch_doid=QPushButton("KMedoids")
     ch_doid.clicked.connect(kmedoids)
     ch_knn=QPushButton("KNN")
+    ch_knn.clicked.connect(Knn)
     lay=QVBoxLayout()
     lay.addWidget(ch_means)
     lay.addWidget(ch_doid)
