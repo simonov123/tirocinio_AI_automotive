@@ -9,6 +9,7 @@ from sklearn.metrics import *
 from sklearn_extra import cluster
 import sys
 from PyQt6.QtWidgets import QPushButton, QApplication, QWidget, QVBoxLayout, QTextEdit, QComboBox, QLabel
+import time
 
 
 def boxplotshow(X):
@@ -363,20 +364,32 @@ def Knn():
     """
     outpt.append("[+] Exec the KNN algorithm [Training]")
     print("[+] Exec the KNN algorithm [Training]")
+    knnstart=time.time()
     KnnOb=KNN_Learner(X_A,Y_A)  #creazione e addestramento del modello
-    outpt.append("modello addestrato")
-    print("modello addestrato")
+    outpt.append("modello addestrato,attendere prego...")
+    print("modello addestrato,attendere prego...")
+    window.setWindowTitle("attendere prego...")
 
     y_prediction=KnnOb.predict(X_B)  #test del modello
     evaluation_results(Y_B, y_prediction, class_names) #stampa risultati
+    print("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
+    outpt.append("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
+    scelta = inpt.currentText()
+    X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt')
+    adv_prediction=KnnOb.predict(X_B_bound_dt)
+    Y_B_expanded = np.resize(Y_B, X_B_bound_dt.shape[
+        0])  # necessario un resize del dataset avversario per evitare errori di inconsistenza dovuta alla diversa dimensione del dataset bilanciato
+    # controllo lunghezza dataset
+    if (len(X_A) < 300000):
+        evaluation_results(Y_B, adv_prediction, class_names)
 
+    else:
+        evaluation_results(Y_B_expanded, adv_prediction, class_names)
 
-
-
-
-
-
-
+    knnend=time.time()
+    outpt.append("time=")
+    outpt.append(str(knnend-knnstart))
+    window.setWindowTitle("Seleziona Algoritmo")
 
 
 #Funzione main - punto di partenza del software
@@ -474,7 +487,7 @@ if __name__ == "__main__":
     ch_knn=QPushButton("KNN")
     ch_knn.clicked.connect(Knn)
     outpt=QTextEdit()
-    outpt.setReadOnly(True);
+    outpt.setReadOnly(True)
     limpt=QLabel("dataset avversario")
     inpt=QComboBox()
     inpt.addItems(['b','c'])
