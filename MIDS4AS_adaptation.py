@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import *
 from sklearn_extra import cluster
 import sys
-from PyQt6.QtWidgets import QPushButton,QApplication,QWidget,QVBoxLayout
+from PyQt6.QtWidgets import QPushButton, QApplication, QWidget, QVBoxLayout, QTextEdit, QComboBox, QLabel
 
 
 def boxplotshow(X):
@@ -87,16 +87,7 @@ def kMedoid_Learner(X_train2,num_clusters,metric,method,init,iter,seed):
     kmedoids_obj=cluster.KMedoids(num_clusters,metric,method,init,iter,seed)
     return kmedoids_obj.fit(X_train2)
 
-def KNN_Learner(X_train2,Y_train2):
-    Knn_obj = KNeighborsClassifier(
-    n_neighbors=5,
-    weights="uniform",
-    algorithm="ball_tree",
-    leaf_size=30,
-    p=2
-)
 
-    return Knn_obj.fit(X_train2,Y_train2)
 
 
 def print_cluster(cluster_class, purity):
@@ -124,6 +115,31 @@ def print_cluster(cluster_class, purity):
           np.where(np.array(list(cluster_class.values())) == 3)[0])
 
     print('\nPurity= ', purity)
+
+    outpt.append("\nResults:\n")
+    outpt.append(f"Cluster: Class = {cluster_class}")
+    outpt.append("\n# of cluster assigned to each class:")
+
+    outpt.append(
+        f"Class 0: {sum(1 for v in cluster_class.values() if v == 0)} "
+        f"{np.where(np.array(list(cluster_class.values())) == 0)[0]}"
+    )
+
+    outpt.append(
+        f"Class 1: {sum(1 for v in cluster_class.values() if v == 1)} "
+        f"{np.where(np.array(list(cluster_class.values())) == 1)[0]}"
+    )
+
+    outpt.append(
+        f"Class 2: {sum(1 for v in cluster_class.values() if v == 2)} "
+        f"{np.where(np.array(list(cluster_class.values())) == 2)[0]}"
+    )
+
+    outpt.append(
+        f"Class 3: {sum(1 for v in cluster_class.values() if v == 3)} "
+        f"{np.where(np.array(list(cluster_class.values())) == 3)[0]}"
+    )
+
 
 def class_to_cluster(y_train, kmeans_labels, class_names):
     """
@@ -164,6 +180,7 @@ def class_to_cluster(y_train, kmeans_labels, class_names):
             n_clust_example = clust_examples.count(cl)
             N += n_clust_example
             print(class_names[cl], ":", n_clust_example, "examples")
+            outpt.append(f"{class_names[cl]} : {n_clust_example} examples")
             if n_clust_example > max_n_clust_example:
                 maxClass = cl
                 max_n_clust_example = n_clust_example
@@ -174,6 +191,9 @@ def class_to_cluster(y_train, kmeans_labels, class_names):
     #DEBUG
     #print("class_to_cluster ", class_to_cluster, "type ", type(class_to_cluster))
     #print("clusters ", clusters, "type ", type(clusters))
+    outpt.append("DEBUG")
+    outpt.append(f"class_to_cluster {class_to_cluster} type {type(class_to_cluster)}")
+    outpt.append(f"clusters {clusters} type {type(clusters)}")
 
     return clusters, class_to_cluster, pur
 
@@ -208,6 +228,8 @@ def evaluation_results(y_test, y_pred, class_names):
     cm = confusion_matrix(y_test, y_pred)
 
     print("Confusion matrix:")
+    outpt.append("Confusion matrix:")
+    outpt.append(str(cm))
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
     disp.plot()
     plt.show()
@@ -216,6 +238,7 @@ def evaluation_results(y_test, y_pred, class_names):
 def kmeans():
         # Esecuzione del K-means (fase di train che serve ad apprendere i centriodi
         print("[+] Exec the K-Means algorithm [Training]")
+        outpt.append("[+] Exec the K-Means algorithm [Training]")
         kmeans_object = kmeans_learner(X_A, len(class_names), seed)
 
         # Prima del testing capiamo la: purity (number), cluster (insieme di etichette dei cluster cioè {0,1,2,3}),
@@ -233,6 +256,7 @@ def kmeans():
 
         # test del kmeans
         print("[+] Exec the K-Means algorithm [Testing]")
+        outpt.append("[+] Exec the K-Means algorithm [Testing]")
         prediction = kmeans_evaluate(X_B, kmeans_object)
 
         # Elaborazione (per ogni esempio di test) della classe corrispondente al cluster predetto
@@ -249,11 +273,14 @@ def kmeans():
         # Test avversario : Training set è sempre X_A (con Y_A)
         # mentre il test set è X_B_bound_dt (con Y_B come verità a terra)
         print("scegliere tra dataset avversario b e c")
-        scelta=input()
+        outpt.append("scegliere tra dataset avversario b e c")
+
+        scelta=inpt.currentText()
         X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_'+scelta+'.txt')
 
         # L'oggetto che rappresenta il "pattern" del k-means è quello del training effettuato precedentemente
         print("[+] Exec the K-Means algorithm [Testing ADV]")
+        outpt.append("[+] Exec the K-Means algorithm [Testing ADV]")
         prediction = kmeans_evaluate(X_B_bound_dt, kmeans_object)
 
         # Si sfrutta il mapping tra le classi (corrispondenti a ciascuna predizione e dunque a ciascun cluster predetto)
@@ -304,10 +331,44 @@ def kmedoids():
     # mentre il test set è X_B_bound_dt (con Y_B come verità a terra)
     X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_b.txt')
 
+
+def KNN_Learner(X_train2,Y_train2):
+    """
+    crea e addestra il modello KNN.
+    Parameters
+    ----------
+    X_train2         variabili indipendenti
+    Y_train2         variabile dipendente
+
+    Returns          modello addestrato
+    -------
+
+    """
+    Knn_obj = KNeighborsClassifier(          #definizione del classificatore
+    n_neighbors=5,   #numero di oggetti vicini con cui confrontarsi
+    weights="uniform",
+    algorithm="ball_tree",
+    leaf_size=30,
+    p=2
+)
+
+    return Knn_obj.fit(X_train2,Y_train2)  #addestramento del modello
+
 def Knn():
-    # Esecuzione del K-means (fase di train che serve ad apprendere i centriodi
+    """
+    esecuzione knn
+    Returns
+    -------
+
+    """
+    outpt.append("[+] Exec the KNN algorithm [Training]")
     print("[+] Exec the KNN algorithm [Training]")
-    KnnOb=KNN_Learner(X_A,Y_A)
+    KnnOb=KNN_Learner(X_A,Y_A)  #creazione e addestramento del modello
+    outpt.append("modello addestrato")
+    print("modello addestrato")
+
+    y_prediction=KnnOb.predict(X_B)  #test del modello
+    evaluation_results(Y_B, y_prediction, class_names) #stampa risultati
 
 
 
@@ -412,14 +473,22 @@ if __name__ == "__main__":
     ch_doid.clicked.connect(kmedoids)
     ch_knn=QPushButton("KNN")
     ch_knn.clicked.connect(Knn)
+    outpt=QTextEdit()
+    outpt.setReadOnly(True);
+    limpt=QLabel("dataset avversario")
+    inpt=QComboBox()
+    inpt.addItems(['b','c'])
     lay=QVBoxLayout()
     lay.addWidget(ch_means)
     lay.addWidget(ch_doid)
     lay.addWidget(ch_knn)
+    lay.addWidget(outpt)
+    lay.addWidget(inpt)
     window.setWindowTitle("Seleziona algoritmo")
-    window.resize(400,150)
+    window.resize(400,750)
     window.setLayout(lay)
     window.show()
     sys.exit(app.exec())
 
 #ho dovuto aggiornare numpy alla versione 2.3.4 e installare setuptools per usare KMedoids
+#08/12/2025
