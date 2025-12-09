@@ -35,7 +35,7 @@ def boxplotshow(X):
         # valori della feature f per ciascuna classe
         data_by_class = [X[X[label] == c][f].values for c in classes]
 
-        axes[i].boxplot(data_by_class, labels=classes)  #disposizione dei valori per le classi
+        axes[i].boxplot(data_by_class, tick_labels=classes)  #disposizione dei valori per le classi
         axes[i].set_title(f'Feature {f}')  #settaggio label dei plot
         axes[i].set_xlabel('Classi')
         axes[i].set_ylabel(f)
@@ -341,7 +341,7 @@ def KNN_Learner(X_train2,Y_train2):
     X_train2         variabili indipendenti
     Y_train2         variabile dipendente
 
-    Returns          modello addestrato
+    Returns          null
     -------
 
     """
@@ -372,21 +372,21 @@ def Knn():
 
     y_prediction=KnnOb.predict(X_B)  #test del modello
     evaluation_results(Y_B, y_prediction, class_names) #stampa risultati
-    print("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
+    print("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")   # parte avversaria
     outpt.append("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
-    scelta = inpt.currentText()
-    X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt')
-    adv_prediction=KnnOb.predict(X_B_bound_dt)
+    scelta = inpt.currentText()   #selezione dataset da spinner
+    X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt')  #caricamento file dataset
+    adv_prediction=KnnOb.predict(X_B_bound_dt)      #KNN su dataset avversario
     Y_B_expanded = np.resize(Y_B, X_B_bound_dt.shape[
         0])  # necessario un resize del dataset avversario per evitare errori di inconsistenza dovuta alla diversa dimensione del dataset bilanciato
     # controllo lunghezza dataset
-    if (len(X_A) < 300000):
+    if (len(X_A) < 300000):   #show results
         evaluation_results(Y_B, adv_prediction, class_names)
 
     else:
         evaluation_results(Y_B_expanded, adv_prediction, class_names)
 
-    knnend=time.time()
+    knnend=time.time()      #valutazione tempo esecuzione algoritmo
     outpt.append("time=")
     outpt.append(str(knnend-knnstart))
     window.setWindowTitle("Seleziona Algoritmo")
@@ -394,7 +394,6 @@ def Knn():
 
 #Funzione main - punto di partenza del software
 if __name__ == "__main__":
-    plt.ion()
     # Nomi delle classi
     class_names = ["Normal", "Dos", "Fuzzy", "Impersonification"]
     # Impostazione del seed così da ri eseguire gli esperimenti
