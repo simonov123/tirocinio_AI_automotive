@@ -530,4 +530,5 @@ if __name__ == "__main__":
     sys.exit(app.exec())
 
 #ho dovuto aggiornare numpy alla versione 2.3.4 e installare setuptools per usare KMedoids
-#08/12/2025
+
+#14/12/2025
