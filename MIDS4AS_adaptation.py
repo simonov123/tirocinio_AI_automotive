@@ -8,8 +8,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import *
 from sklearn_extra import cluster
 import sys
-from PyQt6.QtWidgets import QPushButton, QApplication, QWidget, QVBoxLayout, QTextEdit, QComboBox, QLabel
+from PyQt6.QtWidgets import QPushButton, QApplication, QWidget, QVBoxLayout, QTextEdit, QComboBox, QLabel, \
+    QPlainTextEdit
 import time
+import labeladd
 
 
 def boxplotshow(X):
@@ -35,7 +37,7 @@ def boxplotshow(X):
         # valori della feature f per ciascuna classe
         data_by_class = [X[X[label] == c][f].values for c in classes]
 
-        axes[i].boxplot(data_by_class, tick_labels=classes)  #disposizione dei valori per le classi
+        axes[i].boxplot(data_by_class, labels=classes)  #disposizione dei valori per le classi
         axes[i].set_title(f'Feature {f}')  #settaggio label dei plot
         axes[i].set_xlabel('Classi')
         axes[i].set_ylabel(f)
@@ -277,7 +279,16 @@ def kmeans():
         outpt.append("scegliere tra dataset avversario b e c")
 
         scelta=inpt.currentText()
-        X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_'+scelta+'.txt')
+
+        #controllo: il dataset senza oversampling ha 461.000 esempi,pertanto il suo 60% ha meno di 300.000 esempi
+        if (len(X_A) < 300000):
+            X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt') #preleva dataset avversario senza oversampling
+
+
+        else:
+            X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '_balanced.txt') #preleva dataset avversario con l'oversampling
+            X_B_bound_dt = X_B_bound_dt[:, :-1] #rimuove le label attaccate durante il labelprocessing,ovver l'ultima colonna di numeri
+            print("dataset avversario bilanciato "+str(X_B_bound_dt)) #controllo
 
         # L'oggetto che rappresenta il "pattern" del k-means è quello del training effettuato precedentemente
         print("[+] Exec the K-Means algorithm [Testing ADV]")
@@ -287,15 +298,14 @@ def kmeans():
         # Si sfrutta il mapping tra le classi (corrispondenti a ciascuna predizione e dunque a ciascun cluster predetto)
         # e i cluster precedente
         y_prediction_adv = [cluster_class.get(key) for key in prediction]
-        Y_B_expanded = np.resize(Y_B, X_B_bound_dt.shape[0]) #necessario un resize del dataset avversario per evitare errori di inconsistenza dovuta alla diversa dimensione del dataset bilanciato
         #controllo lunghezza dataset
         if(len(X_A)<300000):
             evaluation_results(Y_B, y_prediction_adv, class_names)
 
         else:
-            evaluation_results(Y_B_expanded, y_prediction_adv, class_names)
+            evaluation_results(Y_B, y_prediction_adv, class_names)
 
-
+#ValueError: Found input variables with inconsistent numbers of samples: [189551, 189552] ho dovuto aggiungere un'esempio a mano
 def kmedoids():
     # Esecuzione del K-means (fase di train che serve ad apprendere i centriodi
     print("[+] Exec the K-Medoids algorithm [Training]")
@@ -341,7 +351,7 @@ def KNN_Learner(X_train2,Y_train2):
     X_train2         variabili indipendenti
     Y_train2         variabile dipendente
 
-    Returns          null
+    Returns          modello addestrato
     -------
 
     """
@@ -364,7 +374,7 @@ def Knn():
     """
     outpt.append("[+] Exec the KNN algorithm [Training]")
     print("[+] Exec the KNN algorithm [Training]")
-    knnstart=time.time()
+    knnstart=time.time() #inizio timer
     KnnOb=KNN_Learner(X_A,Y_A)  #creazione e addestramento del modello
     outpt.append("modello addestrato,attendere prego...")
     print("modello addestrato,attendere prego...")
@@ -372,28 +382,40 @@ def Knn():
 
     y_prediction=KnnOb.predict(X_B)  #test del modello
     evaluation_results(Y_B, y_prediction, class_names) #stampa risultati
-    print("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")   # parte avversaria
+    print("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
     outpt.append("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
-    scelta = inpt.currentText()   #selezione dataset da spinner
-    X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt')  #caricamento file dataset
-    adv_prediction=KnnOb.predict(X_B_bound_dt)      #KNN su dataset avversario
-    Y_B_expanded = np.resize(Y_B, X_B_bound_dt.shape[
-        0])  # necessario un resize del dataset avversario per evitare errori di inconsistenza dovuta alla diversa dimensione del dataset bilanciato
-    # controllo lunghezza dataset
-    if (len(X_A) < 300000):   #show results
+    scelta = inpt.currentText()
+    # controllo: il dataset senza oversampling ha 461.000 esempi,pertanto il suo 60% ha meno di 300.000 esempi
+    if (len(X_A) < 300000):
+        X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt') #preleva dataset senza oversampling
+
+
+    else:
+        X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '_balanced.txt') #preleva dataset con oversampling
+        X_B_bound_dt=X_B_bound_dt[:, :-1]  #rimuove le label attaccate durante il labelprocessing,ovver l'ultima colonna di numeri
+        print("dataset avversario bilanciato " + str(X_B_bound_dt))
+    adv_prediction=KnnOb.predict(X_B_bound_dt)
+    if (len(X_A) < 300000):
         evaluation_results(Y_B, adv_prediction, class_names)
 
     else:
-        evaluation_results(Y_B_expanded, adv_prediction, class_names)
+        evaluation_results(Y_B, adv_prediction, class_names)
 
-    knnend=time.time()      #valutazione tempo esecuzione algoritmo
+    knnend=time.time()   #verifica tempo impiegato per valutare prestazioni KNN
     outpt.append("time=")
     outpt.append(str(knnend-knnstart))
     window.setWindowTitle("Seleziona Algoritmo")
 
+def labelprocessing():
+    print("[+] Exec the labelprocessing algorithm")
+    labeladd.LabelProcessing(Y_B,Y_C)
+
+
 
 #Funzione main - punto di partenza del software
 if __name__ == "__main__":
+    plt.ion()
+    labelprocessingflag=0
     # Nomi delle classi
     class_names = ["Normal", "Dos", "Fuzzy", "Impersonification"]
     # Impostazione del seed così da ri eseguire gli esperimenti
@@ -476,6 +498,8 @@ if __name__ == "__main__":
 
     X_B, X_C, Y_B, Y_C = train_test_split(X_BC, Y_BC, train_size=0.50, test_size=0.50, random_state=seed, stratify=Y_BC)
 
+
+
 #interfaceInit
     app=QApplication(sys.argv)
     window=QWidget()
@@ -485,6 +509,8 @@ if __name__ == "__main__":
     ch_doid.clicked.connect(kmedoids)
     ch_knn=QPushButton("KNN")
     ch_knn.clicked.connect(Knn)
+    lblpr=QPushButton("Algoritmo di aggiunta label")
+    lblpr.clicked.connect(labelprocessing)
     outpt=QTextEdit()
     outpt.setReadOnly(True)
     limpt=QLabel("dataset avversario")
@@ -496,6 +522,7 @@ if __name__ == "__main__":
     lay.addWidget(ch_knn)
     lay.addWidget(outpt)
     lay.addWidget(inpt)
+    lay.addWidget(lblpr)
     window.setWindowTitle("Seleziona algoritmo")
     window.resize(400,750)
     window.setLayout(lay)
