@@ -1,6 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+plt.ion()
 import numpy as np
+from PyQt6.QtCore import QTimer, Qt
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import *
 from sklearn.cluster import KMeans
@@ -12,6 +14,11 @@ from PyQt6.QtWidgets import QPushButton, QApplication, QWidget, QVBoxLayout, QTe
     QPlainTextEdit
 import time
 import labeladd
+from sklearn.metrics import recall_score
+
+
+
+
 
 
 def boxplotshow(X):
@@ -44,7 +51,7 @@ def boxplotshow(X):
 
     #stampa a video dei plot
     plt.tight_layout()
-    plt.show()
+    plt.show(block=False)
 
 
 
@@ -236,12 +243,20 @@ def evaluation_results(y_test, y_pred, class_names):
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
     disp.plot()
     plt.show()
-    print(classification_report(y_test, y_pred, target_names=class_names, output_dict=True))
+    outpt.append("\nTEST ESEGUITO SU "+str(len(y_test))+" ESEMPI\n")
+    print(classification_report(y_test, y_pred, target_names=class_names, output_dict=False))
+    outpt.append(classification_report(y_test, y_pred, target_names=class_names, output_dict=False))
+    weighted_accuracy = recall_score(y_test, y_pred, average='weighted')
+    outpt.append(f"Weighted accuracy: {weighted_accuracy:.4f}")
+
+
 
 def kmeans():
         # Esecuzione del K-means (fase di train che serve ad apprendere i centriodi
         print("[+] Exec the K-Means algorithm [Training]")
         outpt.append("[+] Exec the K-Means algorithm [Training]")
+        kmeanstart = time.time()  # inizio timer
+        scelta = inpt.currentText()
         kmeans_object = kmeans_learner(X_A, len(class_names), seed)
 
         # Prima del testing capiamo la: purity (number), cluster (insieme di etichette dei cluster cioè {0,1,2,3}),
@@ -260,7 +275,11 @@ def kmeans():
         # test del kmeans
         print("[+] Exec the K-Means algorithm [Testing]")
         outpt.append("[+] Exec the K-Means algorithm [Testing]")
-        prediction = kmeans_evaluate(X_B, kmeans_object)
+        if scelta=='b':
+            prediction = kmeans_evaluate(X_B, kmeans_object)
+        if scelta=='c':
+            prediction = kmeans_evaluate(X_C, kmeans_object)
+
 
         # Elaborazione (per ogni esempio di test) della classe corrispondente al cluster predetto
         # Quindi per ogni elemento dell'array "prediction" (cioè il cluster predetto per ogni esempio di test) si va all'interno
@@ -269,16 +288,18 @@ def kmeans():
         y_prediction = [cluster_class.get(key) for key in prediction]
 
         # Valutazione dei risutalti ottenuti:
-        evaluation_results(Y_B, y_prediction, class_names)
+        if scelta=='b':
+            evaluation_results(Y_B, y_prediction, class_names)
+        if scelta=='c':
+            evaluation_results(Y_C, y_prediction, class_names)
 
         print("Parte Avversaria")
         # Valutazione per esempi avversari : Attacco Boundary su Decision Tree
         # Test avversario : Training set è sempre X_A (con Y_A)
         # mentre il test set è X_B_bound_dt (con Y_B come verità a terra)
-        print("scegliere tra dataset avversario b e c")
-        outpt.append("scegliere tra dataset avversario b e c")
+        outpt.append("\n")
 
-        scelta=inpt.currentText()
+
 
         #controllo: il dataset senza oversampling ha 461.000 esempi,pertanto il suo 60% ha meno di 300.000 esempi
         if (len(X_A) < 300000):
@@ -300,10 +321,21 @@ def kmeans():
         y_prediction_adv = [cluster_class.get(key) for key in prediction]
         #controllo lunghezza dataset
         if(len(X_A)<300000):
-            evaluation_results(Y_B, y_prediction_adv, class_names)
+            if scelta=='b':
+                evaluation_results(Y_B, y_prediction_adv, class_names)
+            if scelta=='c':
+                evaluation_results(Y_C, y_prediction_adv, class_names)
 
         else:
-            evaluation_results(Y_B, y_prediction_adv, class_names)
+            if scelta=='b':
+                evaluation_results(Y_B, y_prediction_adv, class_names)
+            if scelta=='c': #aggiustamento dovuto a una differenza di un'esempio
+                min_len = min(len(Y_C), len(y_prediction_adv))
+                evaluation_results(Y_C[:min_len], y_prediction_adv[:min_len], class_names)
+
+        kmeanend = time.time()  # verifica tempo impiegato per valutare prestazioni KNN
+        outpt.append("time=")
+        outpt.append(str(kmeanend - kmeanstart))
 
 #ValueError: Found input variables with inconsistent numbers of samples: [189551, 189552] ho dovuto aggiungere un'esempio a mano
 def kmedoids():
@@ -377,14 +409,21 @@ def Knn():
     knnstart=time.time() #inizio timer
     KnnOb=KNN_Learner(X_A,Y_A)  #creazione e addestramento del modello
     outpt.append("modello addestrato,attendere prego...")
+    outpt.append("Ignorare gli avvisi di sistema")
     print("modello addestrato,attendere prego...")
     window.setWindowTitle("attendere prego...")
-
-    y_prediction=KnnOb.predict(X_B)  #test del modello
-    evaluation_results(Y_B, y_prediction, class_names) #stampa risultati
+    scelta = inpt.currentText()
+    QApplication.processEvents()
+    if scelta=='b':
+        y_prediction=KnnOb.predict(X_B)  #test del modello
+        evaluation_results(Y_B, y_prediction, class_names)  # stampa risultati
+    if scelta=='c':
+        y_prediction=KnnOb.predict(X_C)
+        evaluation_results(Y_C, y_prediction, class_names)  # stampa risultati
+    QApplication.processEvents()
     print("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
     outpt.append("[+] Exec the KNN algorithm [Testing ADV],attendere prego...")
-    scelta = inpt.currentText()
+    outpt.append("Ignorare gli avvisi di sistema")
     # controllo: il dataset senza oversampling ha 461.000 esempi,pertanto il suo 60% ha meno di 300.000 esempi
     if (len(X_A) < 300000):
         X_B_bound_dt = np.loadtxt('./adv_examples/dt/adv_examples_dt_bound_' + scelta + '.txt') #preleva dataset senza oversampling
@@ -396,15 +435,24 @@ def Knn():
         print("dataset avversario bilanciato " + str(X_B_bound_dt))
     adv_prediction=KnnOb.predict(X_B_bound_dt)
     if (len(X_A) < 300000):
-        evaluation_results(Y_B, adv_prediction, class_names)
+        if scelta=='b':
+            evaluation_results(Y_B, adv_prediction, class_names)
+        if scelta == 'c':
+            evaluation_results(Y_C, adv_prediction, class_names)
+
 
     else:
-        evaluation_results(Y_B, adv_prediction, class_names)
+        if scelta=='b':
+            evaluation_results(Y_B, adv_prediction, class_names)
+        if scelta == 'c':
+            min_len = min(len(Y_C), len(adv_prediction))
+            evaluation_results(Y_C[:min_len], adv_prediction[:min_len], class_names)
 
     knnend=time.time()   #verifica tempo impiegato per valutare prestazioni KNN
     outpt.append("time=")
     outpt.append(str(knnend-knnstart))
     window.setWindowTitle("Seleziona Algoritmo")
+
 
 def labelprocessing():
     print("[+] Exec the labelprocessing algorithm")
@@ -414,7 +462,6 @@ def labelprocessing():
 
 #Funzione main - punto di partenza del software
 if __name__ == "__main__":
-    plt.ion()
     labelprocessingflag=0
     # Nomi delle classi
     class_names = ["Normal", "Dos", "Fuzzy", "Impersonification"]
@@ -456,8 +503,7 @@ if __name__ == "__main__":
     2)no
     """)
     plotsc=input()
-    if plotsc=='1':
-        boxplotshow(df_dataset)
+
 
 
 
@@ -527,8 +573,12 @@ if __name__ == "__main__":
     window.resize(400,750)
     window.setLayout(lay)
     window.show()
+    if plotsc=='1':
+        boxplotshow(df_dataset)
     sys.exit(app.exec())
+
+
 
 #ho dovuto aggiornare numpy alla versione 2.3.4 e installare setuptools per usare KMedoids
 
-#14/12/2025
+#19/01/2026
